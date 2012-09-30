@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   applicationDPI="160"
+			   applicationComplete="init(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.zaalabs.multi.discover.DiscoveredServerVO;
+			import com.zaalabs.multi.discover.SearchingSocket;
+			import com.zaalabs.multi.discover.SearchingSocketEvent;
+			
+			import mx.events.FlexEvent;
+			
+			private static const APPLICATION_NAME:String = 'com.bryanberger.arduinoblink';
+			private var _port:int = 9999;
+			private var _ipAddress:String = "192.168.1.101"; // IP of AIR Server
+			
+			[Bindable] protected var _socket:SearchingSocket;
+			[Bindable] protected var _connected:Boolean;
+
+
+			protected function init(event:FlexEvent):void
+			{
+				//INIT
+				setup();
+			}
+			
+			protected function setup(event:MouseEvent = null):void
+			{									
+				_socket = new SearchingSocket(APPLICATION_NAME);
+				_socket.endian = Endian.LITTLE_ENDIAN;
+				
+				_socket.addEventListener(SearchingSocketEvent.SERVER_FOUND, onServerFound);
+				_socket.addEventListener(Event.CONNECT, onSocketConnect);
+				_socket.addEventListener(Event.CLOSE, onSocketClose);
+				_socket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
+				_socket.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onSecurityError);
+			}
+			
+			protected function blink():void
+			{
+				if(_socket.connected)
+				{
+					trace("SENT BLINK COMMAND");
+
+					var vo:Object = new Object();
+					vo.name = "blink";
+					
+					_socket.writeObject( vo );
+					_socket.flush();
+				}	
+			}
+			
+			protected function refreshServerList():void
+			{
+				if(!_connected)
+					_socket.search(APPLICATION_NAME);  // refresh the server list
+			}
+			
+			protected function onSocketConnect( event:Event ):void
+			{
+				_connected = true;
+				txtStatus.text = "Connected!";
+				_socket.addEventListener( ProgressEvent.SOCKET_DATA, socketData );
+			}
+			
+			protected function socketData( event:ProgressEvent ):void
+			{
+				trace(event);
+				var obj:Object = _socket.readObject();
+				
+				if(obj.name == "LED ON")
+				{
+					txtBlink.setStyle('color', 0x75FA13);
+				}
+				else if(obj.name == "LED OFF")
+				{
+					txtBlink.setStyle('color', 0xdc1515);
+				}
+				else
+				{
+					txtBlink.setStyle('color', 0xFFFFFF);
+				}
+				
+				// Set status message
+				txtBlink.text = obj.name;				
+			}
+			
+			protected function onSocketClose( event:Event ):void
+			{
+				trace( "Socket Closed" );
+				_connected = false;
+				txtStatus.text = "Disconnected...";
+			}
+			
+			protected function onSocketError( event:IOErrorEvent ):void
+			{
+				trace( "Socket encountered an Error" );
+				_connected = false;
+				txtStatus.text = "Disconnected...";
+			}
+			
+			protected function onSecurityError( event:SecurityErrorEvent ):void
+			{
+				trace("Security Error: "+event.text);
+			}
+			
+			protected function onServerFound(event:SearchingSocketEvent):void
+			{
+				// just connect to the first found server for this test
+				_socket.connectToServer( event.target.servers[0] );
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<s:VGroup verticalAlign="middle" gap="20" verticalCenter="0" width="100%" paddingBottom="15" paddingLeft="15" paddingRight="15" paddingTop="15">
+		<s:Label id="txtStatus" />
+		<s:Button id="btnConnect" label="Reconnect" width="100%" click="setup()" />
+		
+		<s:Button id="btnBlink" label="Blink" width="100%" click="blink()" />
+		
+		
+		<s:Label id="txtBlink" width="100%" backgroundColor="#252525" color="#FFFFFF" fontSize="36"
+				 paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"
+				 textAlign="center" verticalAlign="top"/>
+		
+	</s:VGroup>
+	
+	
+</s:Application>
